@@ -1,0 +1,45 @@
+name: build-bnova
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-bnova
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Build
+        shell: bash
+        run: |
+          cargo build --release
+          ls -l target/release/bnova.exe
+
+      - name: Save exe (Artifacts)
+        uses: actions/upload-artifact@v4
+        with:
+          name: bnova-exe
+          path: target/release/bnova.exe
+          if-no-files-found: error
+
+      - name: Publish release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete latest --cleanup-tag --yes || true
+          gh release create latest target/release/bnova.exe \
+            --title "Bnova (latest)" \
+            --notes "Fresh build of bnova.exe (Boost by nova)" \
+            --target ${{ github.sha }}
